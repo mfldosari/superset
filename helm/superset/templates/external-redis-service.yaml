@@ -1,0 +1,17 @@
+{{- if .Values.external_redis.enabled -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Values.external_redis.name }} 
+  namespace: {{ .Release.Namespace }} 
+  labels:
+    app: {{ .Release.Name }}-redis
+spec:
+  selector:
+    app: redis 
+  ports:
+    - protocol: TCP
+      port: {{ .Values.external_redis.service.port }}
+      targetPort: {{ .Values.external_redis.service.targetPort }}
+  type: {{ .Values.external_redis.service.type }}
+{{- end -}}

@@ -142,7 +142,10 @@ extraVolumeMounts: []
 # -- A dictionary of overrides to append at the end of superset_config.py - the name does not matter
 # WARNING: the order is not guaranteed
 # Files can be passed as helm --set-file configOverrides.my-override=my-file.py
-configOverrides: {}
+configOverrides:
+ 
+  secret: |
+    SECRET_KEY = 'ZmV3c3Ryb25nZXJzbGlnaHRseXNpZ2h0aHVycmllZHBhcmFncmFwaHlvdXJyZXBlYXQ='
   # extend_timeout: |
   #    # Extend timeout to allow long running queries.
   #    SUPERSET_WEBSERVER_TIMEOUT = ...
@@ -188,8 +191,8 @@ configMountPath: "/app/pythonpath"
 extraConfigMountPath: "/app/configs"
 
 image:
-  repository: apachesuperset.docker.scarf.sh/apache/superset
-  tag: ~
+  repository: docker.shaheen.z8/superset
+  tag: "tcc-dev-001" 
   pullPolicy: IfNotPresent
 
 imagePullSecrets: []
@@ -200,14 +203,16 @@ initImage:
   pullPolicy: IfNotPresent
 
 service:
-  type: ClusterIP
+  # -- The service type for Superset. Options: ClusterIP, NodePort, LoadBalancer
+  type: NodePort
   port: 8088
   annotations: {}
-    # cloud.google.com/load-balancer-type: "Internal"
+  # cloud.google.com/load-balancer-type: "Internal"
   loadBalancerIP: ~
   nodePort:
-    # -- (int)
-    http: nil
+    # -- (int) If set, will be used as the NodePort for HTTP. Required if type is NodePort
+    #    and you want a specific port. Otherwise a random port will be assigned.
+    http: 30007 # Example port. NodePort range is usually 30000-32767
 
 ingress:
   enabled: false
@@ -277,7 +282,7 @@ supersetNode:
     - ". {{ .Values.configMountPath }}/superset_bootstrap.sh; /usr/bin/run-server.sh"
   connections:
     # -- Change in case of bringing your own redis and then also set redis.enabled:false
-    redis_host: "{{ .Release.Name }}-redis-headless"
+    redis_host: "external-redis"
     redis_port: "6379"
     redis_user: ""
     # redis_password: superset
@@ -814,6 +819,10 @@ postgresql:
     database: superset
 
   image:
+    # ADD THIS LINE to point to the correct, legacy repository path
+    repository: bitnamilegacy/postgresql
+    # Use a specific, known-to-work tag from the legacy path if possible, 
+    # or keep the rolling tag '14' and hope it resolves:
     tag: "14.17.0-debian-12-r3"
 
   ## PostgreSQL Primary parameters
@@ -848,7 +857,7 @@ redis:
   ## If you are bringing your own redis, you can set the host in supersetNode.connections.redis_host
   ##
   ## Set to false if bringing your own redis.
-  enabled: true
+  enabled: false
   ##
   ## Set architecture to standalone/replication
   architecture: standalone
@@ -870,8 +879,9 @@ redis:
   master:
     ##
     ## Image configuration
-    # image:
-    ##
+    image:
+      repository: bitnamilegacy/redis
+      tag: "7.0.10-debian-11-r4" # Or whatever tag your chart uses
     ## docker registry secret names (list)
     # pullSecrets: nil
     ##
@@ -887,7 +897,27 @@ redis:
       ## Access mode:
       accessModes:
         - ReadWriteOnce
-
+external_redis:
+  # Global flag to enable/disable the creation of these resources
+  enabled: true
+  
+  # Common configuration
+  name: "external-redis"
+  
+  
+  # Deployment configuration
+  deployment:
+    replicaCount: 1
+    image:
+      repository: "redis"
+      tag: "7.0-alpine"
+      
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 6379
+    targetPort: 6379
+    
 nodeSelector: {}
 
 tolerations: []

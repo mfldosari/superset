@@ -1,0 +1,25 @@
+{{- if .Values.external_redis.enabled -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}-redis-deploy
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: {{ .Release.Name }}-redis
+spec:
+  replicas: {{ .Values.external_redis.deployment.replicaCount }}
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: "{{ .Values.external_redis.deployment.image.repository }}:{{ .Values.external_redis.deployment.image.tag }}"
+        ports:
+        - name: redis-port
+          containerPort: {{ .Values.external_redis.service.targetPort }}
+{{- end -}}
