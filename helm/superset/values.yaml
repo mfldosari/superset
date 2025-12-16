@@ -53,7 +53,13 @@ serviceAccount:
 # @default -- see `values.yaml`
 bootstrapScript: |
   #!/bin/bash
-  if [ ! -f ~/bootstrap ]; then echo "Running Superset with uid {{ .Values.runAsUser }}" > ~/bootstrap; fi
+  # Install the necessary OAuth library
+  pip install Authlib
+  
+  # Your existing logic
+  if [ ! -f ~/bootstrap ]; then 
+    echo "Running Superset with uid {{ .Values.runAsUser }}" > ~/bootstrap
+  fi
 
 # -- The name of the secret which we will use to generate a superset_config.py file
 # Note: this secret must have the key superset_config.py in it and can include other files as well
@@ -123,6 +129,9 @@ extraConfigs: {}
 # -- Extra files to be mounted as Secrets on the path specified in `configMountPath`
 extraSecrets: {}
 
+
+  
+
 extraVolumes: []
   # - name: customConfig
   #   configMap:
@@ -143,7 +152,48 @@ extraVolumeMounts: []
 # WARNING: the order is not guaranteed
 # Files can be passed as helm --set-file configOverrides.my-override=my-file.py
 configOverrides:
- 
+  ENABLE_PROXY_FIX: "True"
+
+  SESSION_COOKIE_SAMESITE: "None"
+  SESSION_COOKIE_SECURE: "False"
+  SESSION_COOKIE_HTTPONLY: "True"
+
+  enable_oauth: |
+    import os
+    import logging
+    from flask_appbuilder.security.manager import (AUTH_DB, AUTH_OAUTH)
+
+    logging.basicConfig(level=logging.DEBUG)
+    logger = logging.getLogger("superset_oauth")
+
+    AUTH_TYPE = AUTH_OAUTH
+    OAUTH_PROVIDERS = [
+        {
+            "name": "keycloak",
+            "icon": "fa-keycloak",
+            "token_key": "id_token",
+            "remote_app": {
+                "client_id": os.environ.get("client_id"),
+                "client_secret": os.environ.get("client_secret"),
+
+                "api_base_url": "https://auth.tcc-ltd.sa/realms/shaheen/protocol/",
+
+                "access_token_url": "https://auth.tcc-ltd.sa/realms/shaheen/protocol/openid-connect/token",
+                "authorize_url": "https://auth.tcc-ltd.sa/realms/shaheen/protocol/openid-connect/auth",
+                "jwks_uri": "https://auth.tcc-ltd.sa/realms/shaheen/protocol/openid-connect/certs",
+                "userinfo_endpoint": "https://auth.tcc-ltd.sa/realms/shaheen/protocol/openid-connect/userinfo",
+                "client_kwargs": {"scope": "openid email profile"},
+            }
+        }
+    ]
+
+    AUTH_ROLE_ADMIN = 'Admin'
+    AUTH_ROLE_PUBLIC = 'Public'
+    AUTH_USER_REGISTRATION = True
+    AUTH_USER_REGISTRATION_ROLE = "Gamma"
+    
+
+
   secret: |
     SECRET_KEY = 'ZmV3c3Ryb25nZXJzbGlnaHRseXNpZ2h0aHVycmllZHBhcmFncmFwaHlvdXJyZXBlYXQ='
   # extend_timeout: |
@@ -301,7 +351,11 @@ supersetNode:
     db_user: superset
     db_pass: superset
     db_name: superset
-  env: {}
+
+  # -- Extra environment variables that will be passed into supersetNode pods
+  env: 
+    client_id: "superset-dev"
+    client_secret: "oddltuPnFaxUEVzBLRtQKunZNeEu2noF"
   # -- If true, forces deployment to reload on each upgrade
   forceReload: false
   # -- Init containers
