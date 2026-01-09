@@ -24,15 +24,21 @@ jobs:
           context: .
           file: ./Dockerfile
           target: dev
-          push: false
-          tags: superset:dev
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/superset:dev
           outputs: type=docker
 
-      - name: Save image as tarball
-        run: docker save superset:dev -o superset-dev.tar
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          name: superset-image
-          path: superset-dev.tar
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_PASSWORD }}
+
+      # - name: Save image as tarball
+      #   run: docker save superset:dev -o superset-dev.tar
+
+      # - name: Upload artifact
+      #   uses: actions/upload-artifact@v4
+      #   with:
+      #     name: superset-image
+      #     path: superset-dev.tar
